@@ -146,7 +146,7 @@ main {
 
 
 /* =========================================
-   ID / PASSWORD AUTH
+   AUTH
 ========================================= */
 
 .auth-page {
@@ -348,6 +348,273 @@ main {
 
 
 /* =========================================
+   GROUP SPACES
+========================================= */
+
+.space-section {
+  margin: 0 -22px 28px;
+}
+
+.space-scroll {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 2px 22px 8px;
+
+  overflow-x: auto;
+
+  scrollbar-width: none;
+}
+
+.space-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.space-chip {
+  display: flex;
+
+  flex: 0 0 auto;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 6px 12px 6px 6px;
+
+  border: 1px solid #e0e0dc;
+  border-radius: 999px;
+
+  background: #fff;
+  color: #777;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+.space-chip.active {
+  border-color: #171717;
+
+  background: #171717;
+  color: #fff;
+}
+
+.space-avatar {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 27px;
+  height: 27px;
+
+  border-radius: 50%;
+
+  background: #efefec;
+  color: #171717;
+
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.space-chip.active .space-avatar {
+  background: #fff;
+}
+
+.space-add {
+  display: flex;
+
+  flex: 0 0 39px;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 39px;
+  height: 39px;
+
+  border: 1px dashed #c9c9c4;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #777;
+
+  font-size: 20px;
+  font-weight: 400;
+}
+
+
+/* =========================================
+   GROUP HEADER
+========================================= */
+
+.group-header-card {
+  margin-bottom: 24px;
+
+  padding: 20px;
+
+  border-radius: 21px;
+
+  background: #fff;
+
+  box-shadow:
+    0 5px 25px
+    rgba(0, 0, 0, 0.035);
+}
+
+.group-title-row {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.group-title-row h2 {
+  font-size: 25px;
+  font-weight: 900;
+
+  letter-spacing: -1.3px;
+}
+
+.member-count {
+  padding: 6px 9px;
+
+  border-radius: 999px;
+
+  background: #f0f0ed;
+  color: #777;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.group-members {
+  display: flex;
+
+  gap: 13px;
+
+  margin-top: 20px;
+  padding-bottom: 5px;
+
+  overflow-x: auto;
+
+  scrollbar-width: none;
+}
+
+.group-members::-webkit-scrollbar {
+  display: none;
+}
+
+.group-member {
+  display: flex;
+
+  flex: 0 0 auto;
+
+  max-width: 60px;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 6px;
+}
+
+.group-member > span {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  border-radius: 50%;
+
+  background: #171717;
+  color: #fff;
+
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.group-member small {
+  width: 100%;
+
+  overflow: hidden;
+
+  color: #777;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* =========================================
+   INVITE CODE
+========================================= */
+
+.invite-box {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 18px;
+
+  padding: 12px 13px;
+
+  border-radius: 13px;
+
+  background: #f4f4f1;
+}
+
+.invite-box > div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.invite-box small {
+  color: #aaa;
+
+  font-size: 7px;
+  font-weight: 900;
+
+  letter-spacing: 0.12em;
+}
+
+.invite-box strong {
+  font-size: 14px;
+  font-weight: 900;
+
+  letter-spacing: 0.13em;
+}
+
+.invite-box button {
+  padding: 8px 11px;
+
+  border-radius: 9px;
+
+  background: #171717;
+  color: #fff;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+
+/* =========================================
    TOP TABS
 ========================================= */
 
@@ -386,6 +653,40 @@ main {
   box-shadow:
     0 2px 8px
     rgba(0, 0, 0, 0.05);
+}
+
+
+/* =========================================
+   CREATE SPACE LABEL
+========================================= */
+
+.create-space-label {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  margin-bottom: 15px;
+
+  padding: 7px 10px;
+
+  border-radius: 999px;
+
+  background: #ececea;
+  color: #555;
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.create-space-label span {
+  color: #999;
+
+  font-size: 7px;
+  font-weight: 900;
+
+  letter-spacing: 0.1em;
 }
 
 
@@ -533,6 +834,23 @@ main {
   font-weight: 900;
 }
 
+.confirm-group {
+  display: inline-flex;
+
+  margin-left: 5px;
+  margin-bottom: 16px;
+
+  padding: 6px 9px;
+
+  border-radius: 999px;
+
+  background: #ededeb;
+  color: #666;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
 .confirm-card h3 {
   margin-bottom: 18px;
 
@@ -555,7 +873,7 @@ main {
 
 
 /* =========================================
-   APPLE CALENDAR OPTION
+   APPLE CALENDAR
 ========================================= */
 
 .integration-option {
@@ -598,7 +916,7 @@ main {
 
 
 /* =========================================
-   MEETING LIST
+   MEETINGS
 ========================================= */
 
 .meeting-list {
@@ -1198,7 +1516,294 @@ main {
 
 
 /* =========================================
-   STATUS BOTTOM SHEET
+   TODO
+========================================= */
+
+.todo-create {
+  display: flex;
+
+  gap: 7px;
+
+  margin-top: 25px;
+}
+
+.todo-create input {
+  flex: 1;
+
+  min-width: 0;
+
+  padding: 14px;
+
+  border: 1px solid #dfdfda;
+  border-radius: 13px;
+
+  background: #fff;
+  color: #171717;
+
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.todo-create input:focus {
+  border-color: #171717;
+}
+
+.todo-create input::placeholder {
+  color: #b8b8b4;
+}
+
+.todo-create > button {
+  flex: 0 0 auto;
+
+  padding: 0 18px;
+
+  border-radius: 13px;
+
+  background: #171717;
+  color: #fff;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.todo-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  margin-top: 20px;
+}
+
+.todo-item {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  min-height: 56px;
+
+  padding: 12px 13px;
+
+  border-radius: 15px;
+
+  background: #fff;
+
+  box-shadow:
+    0 4px 20px
+    rgba(0, 0, 0, 0.025);
+}
+
+.todo-check {
+  display: flex;
+
+  flex: 0 0 24px;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 24px;
+  height: 24px;
+
+  border: 1.5px solid #c6c6c1;
+  border-radius: 7px;
+
+  background: transparent;
+  color: #fff;
+
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.todo-item > span {
+  flex: 1;
+
+  min-width: 0;
+
+  overflow: hidden;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-overflow: ellipsis;
+}
+
+.todo-completed {
+  opacity: 0.55;
+}
+
+.todo-completed .todo-check {
+  border-color: #171717;
+
+  background: #171717;
+}
+
+.todo-completed > span {
+  text-decoration: line-through;
+}
+
+.todo-delete {
+  flex: 0 0 auto;
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 50%;
+
+  background: #f1f1ee;
+  color: #aaa;
+
+  font-size: 16px;
+}
+
+
+/* =========================================
+   GROUP MODAL
+========================================= */
+
+.group-sheet {
+  width: 100%;
+  max-width: 480px;
+
+  padding: 10px 18px 18px;
+
+  border-radius: 27px 27px 22px 22px;
+
+  background: #f7f7f5;
+
+  box-shadow:
+    0 25px 80px
+    rgba(0, 0, 0, 0.22);
+}
+
+.group-sheet > h2 {
+  margin-bottom: 20px;
+
+  font-size: 28px;
+  font-weight: 900;
+
+  letter-spacing: -1.5px;
+}
+
+.group-mode-tabs {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 4px;
+
+  margin-bottom: 20px;
+  padding: 4px;
+
+  border-radius: 12px;
+
+  background: #eaeae7;
+}
+
+.group-mode-tabs button {
+  padding: 10px;
+
+  border-radius: 9px;
+
+  background: transparent;
+  color: #999;
+
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.group-mode-tabs button.active {
+  background: #fff;
+  color: #171717;
+
+  box-shadow:
+    0 2px 7px
+    rgba(0, 0, 0, 0.05);
+}
+
+.group-form {
+  padding: 17px;
+
+  border-radius: 17px;
+
+  background: #fff;
+}
+
+.group-form label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #888;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.group-form input {
+  width: 100%;
+
+  padding: 14px 3px;
+
+  border: 0;
+  border-bottom: 1px solid #d5d5d0;
+
+  border-radius: 0;
+
+  background: transparent;
+  color: #171717;
+
+  font-size: 16px;
+  font-weight: 800;
+
+  outline: none;
+}
+
+.group-form input:focus {
+  border-color: #171717;
+}
+
+.group-form input::placeholder {
+  color: #bbb;
+}
+
+.group-form > p {
+  margin-top: 13px;
+
+  color: #999;
+
+  font-size: 10px;
+
+  line-height: 1.6;
+}
+
+.invite-code-input {
+  text-transform: uppercase;
+
+  letter-spacing: 0.18em;
+}
+
+.group-main-button {
+  width: 100%;
+
+  margin-top: 19px;
+
+  padding: 14px;
+
+  border-radius: 12px;
+
+  background: #171717;
+  color: #fff;
+
+  font-size: 11px;
+  font-weight: 850;
+}
+
+
+/* =========================================
+   MODAL OVERLAY
 ========================================= */
 
 .status-overlay {
@@ -1411,155 +2016,21 @@ main {
 
 
 /* =========================================
-   TODO
-========================================= */
-
-.todo-create {
-  display: flex;
-
-  gap: 7px;
-
-  margin-top: 25px;
-}
-
-.todo-create input {
-  flex: 1;
-
-  min-width: 0;
-
-  padding: 14px;
-
-  border: 1px solid #dfdfda;
-  border-radius: 13px;
-
-  background: #fff;
-  color: #171717;
-
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.todo-create input:focus {
-  border-color: #171717;
-}
-
-.todo-create input::placeholder {
-  color: #b8b8b4;
-}
-
-.todo-create > button {
-  flex: 0 0 auto;
-
-  padding: 0 18px;
-
-  border-radius: 13px;
-
-  background: #171717;
-  color: #fff;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.todo-list {
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 8px;
-
-  margin-top: 20px;
-}
-
-.todo-item {
-  display: flex;
-
-  align-items: center;
-
-  gap: 11px;
-
-  min-height: 56px;
-
-  padding: 12px 13px;
-
-  border-radius: 15px;
-
-  background: #fff;
-
-  box-shadow:
-    0 4px 20px
-    rgba(0, 0, 0, 0.025);
-}
-
-.todo-check {
-  display: flex;
-
-  flex: 0 0 24px;
-
-  align-items: center;
-  justify-content: center;
-
-  width: 24px;
-  height: 24px;
-
-  border: 1.5px solid #c6c6c1;
-  border-radius: 7px;
-
-  background: transparent;
-  color: #fff;
-
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.todo-item > span {
-  flex: 1;
-
-  min-width: 0;
-
-  overflow: hidden;
-
-  font-size: 12px;
-  font-weight: 700;
-
-  text-overflow: ellipsis;
-}
-
-.todo-completed {
-  opacity: 0.55;
-}
-
-.todo-completed .todo-check {
-  border-color: #171717;
-
-  background: #171717;
-}
-
-.todo-completed > span {
-  text-decoration: line-through;
-}
-
-.todo-delete {
-  flex: 0 0 auto;
-
-  width: 28px;
-  height: 28px;
-
-  border-radius: 50%;
-
-  background: #f1f1ee;
-  color: #aaa;
-
-  font-size: 16px;
-}
-
-
-/* =========================================
    MOBILE
 ========================================= */
 
 @media (max-width: 380px) {
   main {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+
+  .space-section {
+    margin-left: -17px;
+    margin-right: -17px;
+  }
+
+  .space-scroll {
     padding-left: 17px;
     padding-right: 17px;
   }
@@ -1604,14 +2075,16 @@ main {
     align-items: center;
   }
 
-  .status-sheet {
+  .status-sheet,
+  .group-sheet {
     border-radius: 27px;
   }
 
   .place-card,
   .meeting-card,
   .place-create,
-  .todo-item {
+  .todo-item,
+  .group-header-card {
     transition:
       transform 0.15s ease,
       box-shadow 0.15s ease;
@@ -1629,7 +2102,7 @@ main {
 
 
 /* =========================================
-   SAFE AREA - iPHONE
+   SAFE AREA
 ========================================= */
 
 @supports (
@@ -1644,7 +2117,8 @@ main {
       );
   }
 
-  .status-sheet {
+  .status-sheet,
+  .group-sheet {
     padding-bottom:
       calc(
         17px +

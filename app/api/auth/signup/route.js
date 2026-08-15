@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from
-  "../../../../lib/supabaseAdmin";
+import {
+  supabaseAdmin,
+} from "../../../../lib/supabaseAdmin";
 
 import {
   createSession,
@@ -67,7 +68,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "비밀번호는 8자 이상으로 만들어주세요.",
+            "비밀번호는 8자 이상이어야 해요.",
         },
         {
           status: 400,
@@ -89,6 +90,7 @@ export async function POST(request) {
 
     const {
       data: existing,
+      error: existingError,
     } = await supabaseAdmin
       .from("meet_users")
       .select("id")
@@ -97,6 +99,10 @@ export async function POST(request) {
         username
       )
       .maybeSingle();
+
+    if (existingError) {
+      throw existingError;
+    }
 
     if (existing) {
       return NextResponse.json(
@@ -118,7 +124,7 @@ export async function POST(request) {
 
     const {
       data: user,
-      error,
+      error: userError,
     } = await supabaseAdmin
       .from("meet_users")
       .insert({
@@ -132,8 +138,8 @@ export async function POST(request) {
       )
       .single();
 
-    if (error) {
-      throw error;
+    if (userError) {
+      throw userError;
     }
 
     const {
@@ -171,13 +177,14 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error(
-      "Signup error:",
+      "SIGNUP REAL ERROR:",
       error
     );
 
     return NextResponse.json(
       {
         error:
+          error?.message ||
           "회원가입 중 오류가 발생했어요.",
       },
       {

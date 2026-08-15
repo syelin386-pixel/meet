@@ -18,29 +18,17 @@ export async function GET() {
 
     return NextResponse.json({
       loggedIn: true,
-
-      user: {
-        id: user.id,
-        username:
-          user.username,
-        nickname:
-          user.nickname,
-      },
+      user,
     });
   } catch (error) {
     console.error(
-      "Auth me error:",
+      "AUTH ME ERROR:",
       error
     );
 
-    return NextResponse.json(
-      {
-        loggedIn: false,
-        user: null,
-      },
-      {
-        status: 500,
-      }
-    );
+    return NextResponse.json({
+      loggedIn: false,
+      user: null,
+    });
   }
 }

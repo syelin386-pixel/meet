@@ -21,7 +21,7 @@ export async function POST() {
     return response;
   } catch (error) {
     console.error(
-      "Logout error:",
+      "LOGOUT ERROR:",
       error
     );
 

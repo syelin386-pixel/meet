@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from
-  "../../../../lib/supabaseAdmin";
+import {
+  supabaseAdmin,
+} from "../../../../lib/supabaseAdmin";
 
 import {
   createSession,
@@ -25,6 +26,21 @@ export async function POST(request) {
       String(
         body.password || ""
       );
+
+    if (
+      !username ||
+      !password
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "아이디와 비밀번호를 입력해주세요.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
     const {
       data: user,
@@ -55,15 +71,13 @@ export async function POST(request) {
       );
     }
 
-    const passwordMatches =
+    const match =
       await bcrypt.compare(
         password,
         user.password_hash
       );
 
-    if (
-      !passwordMatches
-    ) {
+    if (!match) {
       return NextResponse.json(
         {
           error:
@@ -117,13 +131,14 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error(
-      "Login error:",
+      "LOGIN REAL ERROR:",
       error
     );
 
     return NextResponse.json(
       {
         error:
+          error?.message ||
           "로그인 중 오류가 발생했어요.",
       },
       {
