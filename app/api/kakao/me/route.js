@@ -1,14 +1,44 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import { supabaseAdmin } from
+  "../../../../lib/supabaseAdmin";
+
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const cookieStore =
+      await cookies();
 
-    const kakaoId =
-      cookieStore.get("meet_kakao_id")?.value;
+    const userId =
+      cookieStore.get(
+        "meet_user_id"
+      )?.value;
 
-    if (!kakaoId) {
+    if (!userId) {
+      return NextResponse.json({
+        loggedIn: false,
+        user: null,
+      });
+    }
+
+    const {
+      data: user,
+      error,
+    } = await supabaseAdmin
+      .from("meet_users")
+      .select(
+        "id, kakao_id, nickname"
+      )
+      .eq(
+        "id",
+        userId
+      )
+      .maybeSingle();
+
+    if (
+      error ||
+      !user
+    ) {
       return NextResponse.json({
         loggedIn: false,
         user: null,
@@ -17,13 +47,12 @@ export async function GET() {
 
     return NextResponse.json({
       loggedIn: true,
-
-      user: {
-        id: kakaoId,
-      },
+      user,
     });
   } catch (error) {
-    console.error("MEET session error:", error);
+    console.error(
+      error
+    );
 
     return NextResponse.json(
       {

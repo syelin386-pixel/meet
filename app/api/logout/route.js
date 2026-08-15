@@ -1,72 +1,77 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import { supabaseAdmin } from
+  "../../../../lib/supabaseAdmin";
+
 export async function POST() {
-  const cookieStore = await cookies();
+  try {
+    const cookieStore =
+      await cookies();
 
-  const accessToken =
-    cookieStore.get(
-      "meet_kakao_access_token"
-    )?.value;
+    const userId =
+      cookieStore.get(
+        "meet_user_id"
+      )?.value;
 
-  if (accessToken) {
-    try {
-      await fetch(
-        "https://kapi.kakao.com/v1/user/logout",
-        {
-          method: "POST",
+    if (userId) {
+      const {
+        data: tokenRow,
+      } = await supabaseAdmin
+        .from(
+          "kakao_tokens"
+        )
+        .select(
+          "access_token"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .maybeSingle();
 
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`,
+      if (
+        tokenRow?.access_token
+      ) {
+        await fetch(
+          "https://kapi.kakao.com/v1/user/logout",
+          {
+            method: "POST",
 
-            "Content-Type":
-              "application/x-www-form-urlencoded;charset=utf-8",
-          },
+            headers: {
+              Authorization:
+                `Bearer ${tokenRow.access_token}`,
+            },
 
-          cache: "no-store",
-        }
-      );
-    } catch (error) {
-      console.error(
-        "Kakao logout error:",
-        error
-      );
+            cache: "no-store",
+          }
+        ).catch(() => {});
+      }
     }
+
+    const response =
+      NextResponse.json({
+        success: true,
+      });
+
+    response.cookies.delete(
+      "meet_user_id"
+    );
+
+    return response;
+
+  } catch (error) {
+    console.error(error);
+
+    const response =
+      NextResponse.json({
+        success: true,
+      });
+
+    response.cookies.delete(
+      "meet_user_id"
+    );
+
+    return response;
   }
-
-  const response =
-    NextResponse.json({
-      success: true,
-    });
-
-  const clearOptions = {
-    httpOnly: true,
-    secure:
-      process.env.NODE_ENV ===
-      "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  };
-
-  response.cookies.set(
-    "meet_kakao_id",
-    "",
-    clearOptions
-  );
-
-  response.cookies.set(
-    "meet_kakao_access_token",
-    "",
-    clearOptions
-  );
-
-  response.cookies.set(
-    "meet_kakao_refresh_token",
-    "",
-    clearOptions
-  );
-
-  return response;
 }
