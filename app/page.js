@@ -10,6 +10,7 @@ function getDday(dateString) {
   const target = new Date(`${dateString}T00:00:00`);
 
   today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
 
   const diff = target.getTime() - today.getTime();
   const days = Math.round(diff / (1000 * 60 * 60 * 24));
@@ -31,7 +32,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("meetings");
   const [step, setStep] = useState(0);
 
+  // =========================
   // 약속
+  // =========================
+
   const [meetings, setMeetings] = useState([]);
 
   const [title, setTitle] = useState("");
@@ -41,151 +45,174 @@ export default function Home() {
   const [plan, setPlan] = useState("");
   const [place, setPlace] = useState("");
 
+  const [addToKakaoCalendar, setAddToKakaoCalendar] =
+    useState(true);
+
+  // 어떤 PLACES에서 만든 약속인지
+  const [selectedSavedPlaceId, setSelectedSavedPlaceId] =
+    useState(null);
+
+  // meetingId -> placeId 연결
+  const [meetingPlaceLinks, setMeetingPlaceLinks] =
+    useState({});
+
+  // 약속 완료 후 장소 평가창
+  const [placeReview, setPlaceReview] = useState(null);
+
+  // =========================
+  // PLACES
+  // =========================
+
+  const [places, setPlaces] = useState([]);
+
+  const [placeName, setPlaceName] = useState("");
+  const [placeArea, setPlaceArea] = useState("");
+  const [placeMemo, setPlaceMemo] = useState("");
+
+  const [placeCategory, setPlaceCategory] =
+    useState("맛집");
+
+  const [placeStatus, setPlaceStatus] =
+    useState("가고싶어");
+
+  const [placeFilter, setPlaceFilter] =
+    useState("ALL");
+
+  // =========================
   // TODO
+  // =========================
+
   const [todos, setTodos] = useState([]);
   const [todoInput, setTodoInput] = useState("");
 
+  const [addToKakaoTask, setAddToKakaoTask] =
+    useState(true);
+
+  // =========================
+  // 시작
+  // =========================
+
   useEffect(() => {
-    let mounted = true;
+    initialize();
+  }, []);
 
-    async function initialize() {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+  async function initialize() {
+    try {
+      const response = await fetch("/api/kakao/me", {
+        cache: "no-store",
+      });
 
-      if (error) {
-        console.error("Session error:", error);
-      }
+      const data = await response.json();
 
-      if (!mounted) return;
-
-      if (!session?.user) {
+      if (!data.loggedIn || !data.user) {
         setUser(null);
         setLoading(false);
         return;
       }
 
-      const currentUser = session.user;
+      const currentUser = data.user;
 
       setUser(currentUser);
 
-      await loadProfile(currentUser.id);
-      await loadMeetings();
-      await loadTodos(currentUser.id);
+      // 닉네임
+      const savedNickname = localStorage.getItem(
+        `meet_nickname_${currentUser.id}`
+      );
 
-      if (mounted) {
-        setLoading(false);
-      }
-    }
-
-    initialize();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
-      if (event === "SIGNED_OUT") {
-        setUser(null);
-        setNickname("");
-        setNicknameInput("");
-        setMeetings([]);
-        setTodos([]);
+      if (savedNickname) {
+        setNickname(savedNickname);
+        setNicknameInput(savedNickname);
         setNeedsNickname(false);
-        setActiveTab("meetings");
-        setStep(0);
-        setLoading(false);
-        return;
+      } else {
+        setNeedsNickname(true);
       }
 
-      if (session?.user) {
-        const currentUser = session.user;
+      // TODO
+      const savedTodos = localStorage.getItem(
+        `meet_todos_${currentUser.id}`
+      );
 
-        setUser(currentUser);
-
-        setTimeout(async () => {
-          await loadProfile(currentUser.id);
-          await loadMeetings();
-          await loadTodos(currentUser.id);
-
-          setLoading(false);
-        }, 0);
+      if (savedTodos) {
+        try {
+          setTodos(JSON.parse(savedTodos));
+        } catch {
+          setTodos([]);
+        }
       }
-    });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+      // PLACES
+      const savedPlaces = localStorage.getItem(
+        `meet_places_${currentUser.id}`
+      );
 
-  // =========================
-  // 카카오 로그인
-  // =========================
+      if (savedPlaces) {
+        try {
+          setPlaces(JSON.parse(savedPlaces));
+        } catch {
+          setPlaces([]);
+        }
+      }
 
-  async function loginWithKakao() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "kakao",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
+      // 약속 ↔ 장소 연결정보
+      const savedLinks = localStorage.getItem(
+        `meet_meeting_place_links_${currentUser.id}`
+      );
 
-    if (error) {
-      console.error("Kakao login error:", error);
-      alert("카카오 로그인에 실패했어요.");
+      if (savedLinks) {
+        try {
+          setMeetingPlaceLinks(JSON.parse(savedLinks));
+        } catch {
+          setMeetingPlaceLinks({});
+        }
+      }
+
+      await loadMeetings();
+
+      setLoading(false);
+    } catch (error) {
+      console.error("Initialize error:", error);
+
+      setUser(null);
+      setLoading(false);
     }
   }
 
+  // =========================
+  // 로그인
+  // =========================
+
+  function loginWithKakao() {
+    window.location.href = "/api/kakao/login";
+  }
+
   async function logout() {
-    const { error } = await supabase.auth.signOut();
+    try {
+      await fetch("/api/kakao/logout", {
+        method: "POST",
+      });
 
-    if (error) {
-      console.error("Logout error:", error);
+      setUser(null);
+      setNickname("");
+      setNicknameInput("");
+      setMeetings([]);
+      setPlaces([]);
+      setTodos([]);
+      setMeetingPlaceLinks({});
+      setPlaceReview(null);
+      setStep(0);
+
+      window.location.href = "/";
+    } catch (error) {
+      console.error(error);
       alert("로그아웃에 실패했어요.");
-      return;
     }
-
-    setUser(null);
-    setNickname("");
-    setNicknameInput("");
-    setMeetings([]);
-    setTodos([]);
-    setNeedsNickname(false);
-    setActiveTab("meetings");
-    setStep(0);
   }
 
   // =========================
   // 닉네임
   // =========================
 
-  async function loadProfile(userId) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("nickname")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Profile load error:", error);
-      return;
-    }
-
-    if (!data) {
-      setNeedsNickname(true);
-      setNickname("");
-      setNicknameInput("");
-      return;
-    }
-
-    setNickname(data.nickname);
-    setNicknameInput(data.nickname);
-    setNeedsNickname(false);
-  }
-
-  async function saveNickname() {
+  function saveNickname() {
     const cleanNickname = nicknameInput.trim();
 
     if (!cleanNickname) {
@@ -193,23 +220,10 @@ export default function Home() {
       return;
     }
 
-    if (!user) {
-      alert("로그인 정보가 없어요.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({
-        id: user.id,
-        nickname: cleanNickname,
-      });
-
-    if (error) {
-      console.error("Nickname save error:", error);
-      alert("닉네임 저장에 실패했어요.");
-      return;
-    }
+    localStorage.setItem(
+      `meet_nickname_${user.id}`,
+      cleanNickname
+    );
 
     setNickname(cleanNickname);
     setNeedsNickname(false);
@@ -228,22 +242,60 @@ export default function Home() {
       });
 
     if (error) {
-      console.error("Meetings load error:", error);
+      console.error(error);
       return;
     }
 
-    const formatted = (data || []).map((item) => ({
-      id: item.id,
-      title: item.title,
-      date: item.meeting_date,
-      startTime: item.start_time,
-      endTime: item.end_time,
-      plan: item.plan,
-      place: item.place,
-      completed: item.completed,
-    }));
+    setMeetings(
+      (data || []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        date: item.meeting_date,
+        startTime: item.start_time,
+        endTime: item.end_time,
+        plan: item.plan,
+        place: item.place,
+        completed: item.completed,
+      }))
+    );
+  }
 
-    setMeetings(formatted);
+  async function addMeetingToKakaoCalendar() {
+    const response = await fetch("/api/kakao/calendar", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        title: title.trim(),
+        date,
+        startTime,
+        endTime,
+        plan: plan.trim(),
+        place: place.trim(),
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || "톡캘린더 추가 실패"
+      );
+    }
+  }
+
+  function saveMeetingPlaceLinks(nextLinks) {
+    if (!user) return;
+
+    setMeetingPlaceLinks(nextLinks);
+
+    localStorage.setItem(
+      `meet_meeting_place_links_${user.id}`,
+      JSON.stringify(nextLinks)
+    );
   }
 
   async function createMeeting() {
@@ -252,23 +304,58 @@ export default function Home() {
       return;
     }
 
-    const { error } = await supabase
+    if (!date) {
+      alert("날짜를 정해주세요.");
+      return;
+    }
+
+    if (!startTime) {
+      alert("시작 시간을 정해주세요.");
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("meetings")
       .insert({
         title: title.trim(),
-        meeting_date: date || null,
-        start_time: startTime || null,
+        meeting_date: date,
+        start_time: startTime,
         end_time: endTime || null,
         plan: plan.trim() || null,
         place: place.trim() || null,
         completed: false,
-      });
+      })
+      .select("id")
+      .single();
 
     if (error) {
-      console.error("Meeting create error:", error);
+      console.error(error);
       alert("약속 저장에 실패했어요.");
       return;
     }
+
+    // PLACES의 장소로 만든 약속이면 연결 기억
+    if (selectedSavedPlaceId && data?.id) {
+      const nextLinks = {
+        ...meetingPlaceLinks,
+        [data.id]: selectedSavedPlaceId,
+      };
+
+      saveMeetingPlaceLinks(nextLinks);
+    }
+
+    let calendarSuccess = false;
+
+    if (addToKakaoCalendar) {
+      try {
+        await addMeetingToKakaoCalendar();
+        calendarSuccess = true;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    await loadMeetings();
 
     setTitle("");
     setDate("");
@@ -277,14 +364,29 @@ export default function Home() {
     setPlan("");
     setPlace("");
 
-    await loadMeetings();
+    setSelectedSavedPlaceId(null);
+    setAddToKakaoCalendar(true);
 
     setStep(0);
     setActiveTab("meetings");
+
+    if (addToKakaoCalendar) {
+      if (calendarSuccess) {
+        alert(
+          "약속을 만들었어요!\n톡캘린더에도 추가했어요 🟡"
+        );
+      } else {
+        alert(
+          "MEET에는 저장됐지만 톡캘린더 추가는 실패했어요."
+        );
+      }
+    }
   }
 
   async function deleteMeeting(id) {
-    const ok = window.confirm("이 약속을 삭제할까요?");
+    const ok = window.confirm(
+      "이 약속을 삭제할까요?"
+    );
 
     if (!ok) return;
 
@@ -294,120 +396,268 @@ export default function Home() {
       .eq("id", id);
 
     if (error) {
-      console.error("Meeting delete error:", error);
       alert("약속 삭제에 실패했어요.");
       return;
+    }
+
+    // 장소 연결정보도 삭제
+    if (meetingPlaceLinks[id]) {
+      const nextLinks = {
+        ...meetingPlaceLinks,
+      };
+
+      delete nextLinks[id];
+
+      saveMeetingPlaceLinks(nextLinks);
     }
 
     await loadMeetings();
   }
 
   async function toggleMeetingComplete(meeting) {
+    const willComplete = !meeting.completed;
+
     const { error } = await supabase
       .from("meetings")
       .update({
-        completed: !meeting.completed,
+        completed: willComplete,
       })
       .eq("id", meeting.id);
 
     if (error) {
-      console.error("Meeting update error:", error);
       alert("완료 상태 변경에 실패했어요.");
       return;
     }
 
     await loadMeetings();
+
+    // 이제 막 완료한 약속이 PLACES에서 만들어진 경우
+    if (willComplete) {
+      const linkedPlaceId =
+        meetingPlaceLinks[meeting.id];
+
+      if (linkedPlaceId) {
+        const linkedPlace = places.find(
+          (item) =>
+            String(item.id) ===
+            String(linkedPlaceId)
+        );
+
+        if (
+          linkedPlace &&
+          linkedPlace.status === "가고싶어"
+        ) {
+          setPlaceReview({
+            meetingId: meeting.id,
+            placeId: linkedPlace.id,
+            placeName: linkedPlace.name,
+          });
+        }
+      }
+    }
+  }
+
+  // =========================
+  // PLACES
+  // =========================
+
+  function savePlaces(nextPlaces) {
+    setPlaces(nextPlaces);
+
+    localStorage.setItem(
+      `meet_places_${user.id}`,
+      JSON.stringify(nextPlaces)
+    );
+  }
+
+  function createPlace() {
+    const cleanName = placeName.trim();
+
+    if (!cleanName) {
+      alert("장소 이름을 입력해주세요.");
+      return;
+    }
+
+    const newPlace = {
+      id: Date.now(),
+      name: cleanName,
+      area: placeArea.trim(),
+      memo: placeMemo.trim(),
+      category: placeCategory,
+      status: placeStatus,
+      createdAt: new Date().toISOString(),
+    };
+
+    savePlaces([
+      newPlace,
+      ...places,
+    ]);
+
+    setPlaceName("");
+    setPlaceArea("");
+    setPlaceMemo("");
+    setPlaceCategory("맛집");
+    setPlaceStatus("가고싶어");
+  }
+
+  function deletePlace(id) {
+    const ok = window.confirm(
+      "이 장소를 삭제할까요?"
+    );
+
+    if (!ok) return;
+
+    savePlaces(
+      places.filter(
+        (item) => item.id !== id
+      )
+    );
+  }
+
+  // 장소 상태 변경
+  function changePlaceStatus(id, status) {
+    const nextPlaces = places.map(
+      (item) =>
+        item.id === id
+          ? {
+              ...item,
+              status,
+            }
+          : item
+    );
+
+    savePlaces(nextPlaces);
+  }
+
+  // 약속 완료 후 평가
+  function finishPlaceReview(status) {
+    if (!placeReview) return;
+
+    changePlaceStatus(
+      placeReview.placeId,
+      status
+    );
+
+    setPlaceReview(null);
+  }
+
+  // PLACES → 약속
+  function makeMeetingFromPlace(savedPlace) {
+    setTitle("");
+    setDate("");
+    setStartTime("");
+    setEndTime("");
+
+    setPlace(savedPlace.name);
+    setPlan(savedPlace.memo || "");
+
+    setSelectedSavedPlaceId(savedPlace.id);
+
+    setActiveTab("meetings");
+    setStep(1);
   }
 
   // =========================
   // TODO
   // =========================
 
-  async function loadTodos(userId) {
-    const { data, error } = await supabase
-      .from("todos")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", {
-        ascending: false,
-      });
+  function saveTodos(nextTodos) {
+    setTodos(nextTodos);
 
-    if (error) {
-      console.error("Todos load error:", error);
-      return;
+    localStorage.setItem(
+      `meet_todos_${user.id}`,
+      JSON.stringify(nextTodos)
+    );
+  }
+
+  async function addTodoToKakao(content) {
+    const response = await fetch(
+      "/api/kakao/task",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          content,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message ||
+          "카카오 할 일 추가 실패"
+      );
     }
-
-    setTodos(data || []);
   }
 
   async function createTodo() {
-    const cleanTodo = todoInput.trim();
+    const cleanTodo =
+      todoInput.trim();
 
-    if (!cleanTodo) {
-      return;
-    }
+    if (!cleanTodo) return;
 
-    if (!user) {
-      return;
-    }
+    const newTodo = {
+      id: Date.now(),
+      title: cleanTodo,
+      completed: false,
+    };
 
-    const { error } = await supabase
-      .from("todos")
-      .insert({
-        user_id: user.id,
-        title: cleanTodo,
-        completed: false,
-      });
-
-    if (error) {
-      console.error("Todo create error:", error);
-      alert("할 일 저장에 실패했어요.");
-      return;
-    }
+    saveTodos([
+      newTodo,
+      ...todos,
+    ]);
 
     setTodoInput("");
 
-    await loadTodos(user.id);
+    if (addToKakaoTask) {
+      try {
+        await addTodoToKakao(
+          cleanTodo
+        );
+
+        alert(
+          "카카오 내 할 일에도 추가했어요 🟡"
+        );
+      } catch {
+        alert(
+          "MEET에는 저장됐지만 카카오 내 할 일 추가는 실패했어요."
+        );
+      }
+    }
   }
 
-  async function toggleTodo(todo) {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("todos")
-      .update({
-        completed: !todo.completed,
-      })
-      .eq("id", todo.id);
-
-    if (error) {
-      console.error("Todo update error:", error);
-      alert("할 일 변경에 실패했어요.");
-      return;
-    }
-
-    await loadTodos(user.id);
+  function toggleTodo(todo) {
+    saveTodos(
+      todos.map((item) =>
+        item.id === todo.id
+          ? {
+              ...item,
+              completed:
+                !item.completed,
+            }
+          : item
+      )
+    );
   }
 
-  async function deleteTodo(id) {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("todos")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      console.error("Todo delete error:", error);
-      alert("할 일 삭제에 실패했어요.");
-      return;
-    }
-
-    await loadTodos(user.id);
+  function deleteTodo(id) {
+    saveTodos(
+      todos.filter(
+        (item) =>
+          item.id !== id
+      )
+    );
   }
 
   // =========================
-  // 로딩
+  // LOADING / LOGIN
   // =========================
 
   if (loading) {
@@ -419,10 +669,6 @@ export default function Home() {
     );
   }
 
-  // =========================
-  // 로그인
-  // =========================
-
   if (!user) {
     return (
       <main className="login-page">
@@ -432,7 +678,9 @@ export default function Home() {
         </div>
 
         <div className="login-box">
-          <h2>같이 약속을 만들어봐요.</h2>
+          <h2>
+            같이 약속을 만들어봐요.
+          </h2>
 
           <button
             className="kakao-button"
@@ -445,10 +693,6 @@ export default function Home() {
     );
   }
 
-  // =========================
-  // 첫 로그인 닉네임 설정
-  // =========================
-
   if (needsNickname) {
     return (
       <main className="nickname-page">
@@ -456,7 +700,9 @@ export default function Home() {
           WELCOME TO MEET
         </p>
 
-        <h2>뭐라고 부르면 될까?</h2>
+        <h2>
+          뭐라고 부르면 될까?
+        </h2>
 
         <p className="nickname-description">
           MEET에서 사용할 닉네임을 정해주세요.
@@ -468,13 +714,10 @@ export default function Home() {
           maxLength={12}
           value={nicknameInput}
           onChange={(e) =>
-            setNicknameInput(e.target.value)
+            setNicknameInput(
+              e.target.value
+            )
           }
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              saveNickname();
-            }
-          }}
         />
 
         <button onClick={saveNickname}>
@@ -501,20 +744,30 @@ export default function Home() {
 
             <input
               type="text"
-              placeholder="예: 영화 보러 가기"
+              placeholder="예: 공방 가기"
               value={title}
               onChange={(e) =>
                 setTitle(e.target.value)
               }
             />
 
-            <button onClick={() => setStep(2)}>
+            <button
+              onClick={() =>
+                setStep(2)
+              }
+            >
               다음 →
             </button>
 
             <button
               className="back-button"
-              onClick={() => setStep(0)}
+              onClick={() => {
+                setSelectedSavedPlaceId(
+                  null
+                );
+
+                setStep(0);
+              }}
             >
               ← 돌아가기
             </button>
@@ -545,7 +798,9 @@ export default function Home() {
               type="time"
               value={startTime}
               onChange={(e) =>
-                setStartTime(e.target.value)
+                setStartTime(
+                  e.target.value
+                )
               }
             />
 
@@ -555,17 +810,25 @@ export default function Home() {
               type="time"
               value={endTime}
               onChange={(e) =>
-                setEndTime(e.target.value)
+                setEndTime(
+                  e.target.value
+                )
               }
             />
 
-            <button onClick={() => setStep(3)}>
+            <button
+              onClick={() =>
+                setStep(3)
+              }
+            >
               다음 →
             </button>
 
             <button
               className="back-button"
-              onClick={() => setStep(1)}
+              onClick={() =>
+                setStep(1)
+              }
             >
               ← 이전
             </button>
@@ -581,20 +844,26 @@ export default function Home() {
             <h2>뭐 할까?</h2>
 
             <textarea
-              placeholder="예: 영화 보고 저녁 먹기"
+              placeholder="예: 도자기 만들기"
               value={plan}
               onChange={(e) =>
                 setPlan(e.target.value)
               }
             />
 
-            <button onClick={() => setStep(4)}>
+            <button
+              onClick={() =>
+                setStep(4)
+              }
+            >
               다음 →
             </button>
 
             <button
               className="back-button"
-              onClick={() => setStep(2)}
+              onClick={() =>
+                setStep(2)
+              }
             >
               ← 이전
             </button>
@@ -607,24 +876,38 @@ export default function Home() {
               04 / PLACE
             </p>
 
-            <h2>어디서 만날까?</h2>
+            <h2>
+              어디서 만날까?
+            </h2>
 
             <input
               type="text"
-              placeholder="예: 성수역"
+              placeholder="예: 성수 도자기 공방"
               value={place}
               onChange={(e) =>
                 setPlace(e.target.value)
               }
             />
 
-            <button onClick={() => setStep(5)}>
+            {selectedSavedPlaceId && (
+              <div className="linked-place-notice">
+                ♡ PLACES에서 가져온 장소예요
+              </div>
+            )}
+
+            <button
+              onClick={() =>
+                setStep(5)
+              }
+            >
               다음 →
             </button>
 
             <button
               className="back-button"
-              onClick={() => setStep(3)}
+              onClick={() =>
+                setStep(3)
+              }
             >
               ← 이전
             </button>
@@ -637,24 +920,23 @@ export default function Home() {
               CONFIRM
             </p>
 
-            <h2>이렇게 만날까?</h2>
+            <h2>
+              이렇게 만날까?
+            </h2>
 
             <div className="confirm-card">
               <div className="confirm-dday">
                 {getDday(date)}
               </div>
 
-              <h3>
-                {title || "약속 이름 없음"}
-              </h3>
+              <h3>{title}</h3>
+
+              <p>📅 {date}</p>
 
               <p>
-                📅 {date || "날짜 미정"}
-              </p>
-
-              <p>
-                ⏰ {startTime || "시간 미정"}
-                {endTime && ` ~ ${endTime}`}
+                ⏰ {startTime}
+                {endTime &&
+                  ` ~ ${endTime}`}
               </p>
 
               {plan && (
@@ -666,13 +948,35 @@ export default function Home() {
               )}
             </div>
 
-            <button onClick={createMeeting}>
+            <label className="integration-option">
+              <input
+                type="checkbox"
+                checked={
+                  addToKakaoCalendar
+                }
+                onChange={(e) =>
+                  setAddToKakaoCalendar(
+                    e.target.checked
+                  )
+                }
+              />
+
+              <span>
+                톡캘린더에도 추가
+              </span>
+            </label>
+
+            <button
+              onClick={createMeeting}
+            >
               약속 만들기
             </button>
 
             <button
               className="back-button"
-              onClick={() => setStep(4)}
+              onClick={() =>
+                setStep(4)
+              }
             >
               ← 수정하기
             </button>
@@ -705,8 +1009,6 @@ export default function Home() {
           </button>
         </div>
       </header>
-
-      {/* 메뉴 */}
 
       <nav className="top-tabs">
         <button
@@ -765,83 +1067,93 @@ export default function Home() {
             </div>
           )}
 
-          {meetings.length > 0 && (
-            <section className="meeting-list">
-              {meetings.map((meeting) => (
-                <div
-                  key={meeting.id}
-                  className={`meeting-card ${
-                    meeting.completed
-                      ? "completed"
-                      : ""
-                  }`}
-                >
-                  <div className="dday">
-                    {getDday(meeting.date)}
-                  </div>
+          <section className="meeting-list">
+            {meetings.map((meeting) => (
+              <div
+                key={meeting.id}
+                className={`meeting-card ${
+                  meeting.completed
+                    ? "completed"
+                    : ""
+                }`}
+              >
+                <div className="dday">
+                  {getDday(meeting.date)}
+                </div>
 
-                  <div className="meeting-top">
-                    <button
-                      className="check-button"
-                      onClick={() =>
-                        toggleMeetingComplete(meeting)
-                      }
-                    >
-                      {meeting.completed
-                        ? "✓"
-                        : ""}
-                    </button>
-
-                    <h2>
-                      {meeting.title}
-                    </h2>
-                  </div>
-
-                  <div className="meeting-info">
-                    <p>
-                      📅{" "}
-                      {meeting.date ||
-                        "날짜 미정"}
-                    </p>
-
-                    <p>
-                      ⏰{" "}
-                      {meeting.startTime ||
-                        "시간 미정"}
-
-                      {meeting.endTime &&
-                        ` ~ ${meeting.endTime}`}
-                    </p>
-
-                    {meeting.plan && (
-                      <p>
-                        ✦ {meeting.plan}
-                      </p>
-                    )}
-
-                    {meeting.place && (
-                      <p>
-                        📍 {meeting.place}
-                      </p>
-                    )}
-                  </div>
-
+                <div className="meeting-top">
                   <button
-                    className="delete-button"
+                    className="check-button"
                     onClick={() =>
-                      deleteMeeting(meeting.id)
+                      toggleMeetingComplete(
+                        meeting
+                      )
                     }
                   >
-                    삭제
+                    {meeting.completed
+                      ? "✓"
+                      : ""}
                   </button>
+
+                  <h2>
+                    {meeting.title}
+                  </h2>
                 </div>
-              ))}
-            </section>
-          )}
+
+                <div className="meeting-info">
+                  <p>
+                    📅 {meeting.date}
+                  </p>
+
+                  <p>
+                    ⏰ {meeting.startTime}
+                    {meeting.endTime &&
+                      ` ~ ${meeting.endTime}`}
+                  </p>
+
+                  {meeting.plan && (
+                    <p>
+                      ✦ {meeting.plan}
+                    </p>
+                  )}
+
+                  {meeting.place && (
+                    <p>
+                      📍 {meeting.place}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  className="delete-button"
+                  onClick={() =>
+                    deleteMeeting(
+                      meeting.id
+                    )
+                  }
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </section>
 
           <button
             className="new-button"
-            onClick={() => setStep(1)}
+            onClick={() => {
+              setSelectedSavedPlaceId(
+                null
+              );
+
+              setTitle("");
+              setDate("");
+              setStartTime("");
+              setEndTime("");
+              setPlan("");
+              setPlace("");
+
+              setStep(1);
+            }}
           >
             + 새 약속 만들기
           </button>
@@ -859,11 +1171,269 @@ export default function Home() {
           </p>
 
           <h2 className="section-title">
-            어디 갈까?
+            우리 어디 가지?
           </h2>
 
-          <div className="empty">
-            아직 저장한 장소가 없어요.
+          <p className="places-description">
+            맛집부터 최애 공방까지,
+            같이 가고 싶은 곳을 모아둬.
+          </p>
+
+          <div className="place-create">
+            <h3 className="place-form-title">
+              + 새 장소 저장
+            </h3>
+
+            <div className="category-selector">
+              {[
+                "맛집",
+                "카페",
+                "술",
+                "공방",
+                "놀거리",
+                "쇼핑",
+                "여행",
+                "기타",
+              ].map((category) => (
+                <button
+                  key={category}
+                  className={
+                    placeCategory ===
+                    category
+                      ? "category-button selected"
+                      : "category-button"
+                  }
+                  onClick={() =>
+                    setPlaceCategory(
+                      category
+                    )
+                  }
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              placeholder="장소 이름"
+              value={placeName}
+              onChange={(e) =>
+                setPlaceName(
+                  e.target.value
+                )
+              }
+            />
+
+            <input
+              type="text"
+              placeholder="지역 · 예: 성수"
+              value={placeArea}
+              onChange={(e) =>
+                setPlaceArea(
+                  e.target.value
+                )
+              }
+            />
+
+            <textarea
+              placeholder="메모 · 예: 크림파스타 먹어보기"
+              value={placeMemo}
+              onChange={(e) =>
+                setPlaceMemo(
+                  e.target.value
+                )
+              }
+            />
+
+            <button
+              className="save-place-button"
+              onClick={createPlace}
+            >
+              + 장소 저장
+            </button>
+          </div>
+
+          <div className="place-filters">
+            {[
+              "ALL",
+              "맛집",
+              "카페",
+              "공방",
+              "놀거리",
+              "최애",
+            ].map((filter) => (
+              <button
+                key={filter}
+                className={
+                  placeFilter === filter
+                    ? "place-filter active"
+                    : "place-filter"
+                }
+                onClick={() =>
+                  setPlaceFilter(
+                    filter
+                  )
+                }
+              >
+                {filter === "최애"
+                  ? "★ 최애"
+                  : filter}
+              </button>
+            ))}
+          </div>
+
+          <div className="place-list">
+            {places
+              .filter((savedPlace) => {
+                if (
+                  placeFilter === "ALL"
+                ) {
+                  return true;
+                }
+
+                if (
+                  placeFilter === "최애"
+                ) {
+                  return (
+                    savedPlace.status ===
+                    "최애"
+                  );
+                }
+
+                return (
+                  savedPlace.category ===
+                  placeFilter
+                );
+              })
+              .map((savedPlace) => (
+                <div
+                  className="place-card"
+                  key={savedPlace.id}
+                >
+                  <div className="place-card-top">
+                    <span className="place-category">
+                      {savedPlace.category}
+                    </span>
+
+                    <span
+                      className={`place-status ${
+                        savedPlace.status ===
+                        "최애"
+                          ? "favorite"
+                          : ""
+                      }`}
+                    >
+                      {savedPlace.status ===
+                        "가고싶어" &&
+                        "♡ 가고싶어"}
+
+                      {savedPlace.status ===
+                        "다녀왔어" &&
+                        "✓ 다녀왔어"}
+
+                      {savedPlace.status ===
+                        "최애" &&
+                        "★ 최애"}
+                    </span>
+                  </div>
+
+                  <h3>
+                    {savedPlace.name}
+                  </h3>
+
+                  {savedPlace.area && (
+                    <p className="place-area">
+                      📍 {savedPlace.area}
+                    </p>
+                  )}
+
+                  {savedPlace.memo && (
+                    <p className="place-card-memo">
+                      “{savedPlace.memo}”
+                    </p>
+                  )}
+
+                  {/* 상태 직접 변경 */}
+
+                  <div className="place-status-change">
+                    <button
+                      className={
+                        savedPlace.status ===
+                        "가고싶어"
+                          ? "mini-status active"
+                          : "mini-status"
+                      }
+                      onClick={() =>
+                        changePlaceStatus(
+                          savedPlace.id,
+                          "가고싶어"
+                        )
+                      }
+                    >
+                      ♡ 가고싶어
+                    </button>
+
+                    <button
+                      className={
+                        savedPlace.status ===
+                        "다녀왔어"
+                          ? "mini-status active"
+                          : "mini-status"
+                      }
+                      onClick={() =>
+                        changePlaceStatus(
+                          savedPlace.id,
+                          "다녀왔어"
+                        )
+                      }
+                    >
+                      ✓ 다녀왔어
+                    </button>
+
+                    <button
+                      className={
+                        savedPlace.status ===
+                        "최애"
+                          ? "mini-status active"
+                          : "mini-status"
+                      }
+                      onClick={() =>
+                        changePlaceStatus(
+                          savedPlace.id,
+                          "최애"
+                        )
+                      }
+                    >
+                      ★ 최애
+                    </button>
+                  </div>
+
+                  <div className="place-actions">
+                    <button
+                      className="place-meeting-button"
+                      onClick={() =>
+                        makeMeetingFromPlace(
+                          savedPlace
+                        )
+                      }
+                    >
+                      약속 잡기
+                    </button>
+
+                    <button
+                      className="delete-button"
+                      onClick={() =>
+                        deletePlace(
+                          savedPlace.id
+                        )
+                      }
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ))}
           </div>
         </section>
       )}
@@ -888,35 +1458,44 @@ export default function Home() {
               placeholder="예: 영화 예매하기"
               value={todoInput}
               onChange={(e) =>
-                setTodoInput(e.target.value)
+                setTodoInput(
+                  e.target.value
+                )
               }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  createTodo();
-                }
-              }}
             />
 
-            <button onClick={createTodo}>
+            <button
+              onClick={createTodo}
+            >
               추가
             </button>
           </div>
 
-          {todos.length === 0 && (
-            <div className="empty">
-              아직 할 일이 없어요.
-            </div>
-          )}
+          <label className="integration-option">
+            <input
+              type="checkbox"
+              checked={addToKakaoTask}
+              onChange={(e) =>
+                setAddToKakaoTask(
+                  e.target.checked
+                )
+              }
+            />
+
+            <span>
+              카카오 내 할 일에도 추가
+            </span>
+          </label>
 
           <div className="todo-list">
             {todos.map((todo) => (
               <div
-                key={todo.id}
                 className={`todo-item ${
                   todo.completed
                     ? "todo-completed"
                     : ""
                 }`}
+                key={todo.id}
               >
                 <button
                   className="todo-check"
@@ -945,6 +1524,59 @@ export default function Home() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* =========================
+          다녀온 장소 평가 팝업
+      ========================= */}
+
+      {placeReview && (
+        <div className="review-overlay">
+          <div className="review-modal">
+            <p className="step-label">
+              HOW WAS IT?
+            </p>
+
+            <h2>
+              {placeReview.placeName}
+            </h2>
+
+            <p className="review-description">
+              다녀왔네! 여긴 어땠어?
+            </p>
+
+            <button
+              className="visited-button"
+              onClick={() =>
+                finishPlaceReview(
+                  "다녀왔어"
+                )
+              }
+            >
+              ✓ 다녀왔어
+            </button>
+
+            <button
+              className="favorite-button"
+              onClick={() =>
+                finishPlaceReview(
+                  "최애"
+                )
+              }
+            >
+              ★ 최애야
+            </button>
+
+            <button
+              className="later-button"
+              onClick={() =>
+                setPlaceReview(null)
+              }
+            >
+              나중에 정할래
+            </button>
+          </div>
+        </div>
       )}
     </main>
   );
