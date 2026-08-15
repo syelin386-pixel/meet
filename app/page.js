@@ -3,151 +3,217 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-
-// ================================
-// D-DAY 계산
-// ================================
-
 function getDday(dateString) {
   if (!dateString) return "";
 
   const today = new Date();
-  const target = new Date(
-    dateString + "T00:00:00"
-  );
+  const target = new Date(dateString + "T00:00:00");
 
   today.setHours(0, 0, 0, 0);
 
-  const difference =
-    target.getTime() - today.getTime();
+  const difference = target.getTime() - today.getTime();
 
   const days = Math.round(
     difference / (1000 * 60 * 60 * 24)
   );
 
-  if (days === 0) {
-    return "D-DAY";
-  }
-
-  if (days > 0) {
-    return `D-${days}`;
-  }
+  if (days === 0) return "D-DAY";
+  if (days > 0) return `D-${days}`;
 
   return `D+${Math.abs(days)}`;
 }
 
-
 export default function Home() {
+  const [loading, setLoading] = useState(true);
 
+  // 로그인 사용자
+  const [user, setUser] = useState(null);
+
+  // 닉네임
+  const [nickname, setNickname] = useState("");
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [needsNickname, setNeedsNickname] = useState(false);
+
+  // 화면
   const [step, setStep] = useState(0);
 
-  // 입력값
+  // 약속
+  const [meetings, setMeetings] = useState([]);
+
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
-
-  const [startTime, setStartTime] =
-    useState("");
-
-  const [endTime, setEndTime] =
-    useState("");
-
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [plan, setPlan] = useState("");
   const [place, setPlace] = useState("");
 
-  // Supabase에서 가져온 약속
-  const [meetings, setMeetings] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-
-  // ================================
-  // 사이트 처음 열었을 때
-  // 약속 불러오기
-  // ================================
-
   useEffect(() => {
-    loadMeetings();
+    checkLogin();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const currentUser = session?.user || null;
+
+        setUser(currentUser);
+
+        if (currentUser) {
+          await loadProfile(currentUser.id);
+          await loadMeetings();
+        } else {
+          setNickname("");
+          setMeetings([]);
+        }
+
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  async function checkLogin() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  async function loadMeetings() {
+    setUser(user);
 
-    setLoading(true);
-
-    const { data, error } =
-      await supabase
-        .from("meetings")
-        .select("*")
-        .order("meeting_date", {
-          ascending: true,
-        })
-        .order("start_time", {
-          ascending: true,
-        });
-
-    if (error) {
-
-      console.error(
-        "약속 불러오기 실패:",
-        error
-      );
-
-      setLoading(false);
-
-      return;
+    if (user) {
+      await loadProfile(user.id);
+      await loadMeetings();
     }
-
-    setMeetings(data || []);
 
     setLoading(false);
   }
 
-
-  // ================================
-  // 약속 만들기
-  // ================================
-
-  async function createMeeting() {
-
+  async function loginWithKakao() {
     const { error } =
-      await supabase
-        .from("meetings")
-        .insert([
-          {
-            title: title,
-            meeting_date:
-              date || null,
+      await supabase.auth.signInWithOAuth({
+        provider: "kakao",
 
-            start_time:
-              startTime || null,
-
-            end_time:
-              endTime || null,
-
-            plan: plan,
-            place: place,
-
-            completed: false,
-          },
-        ]);
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
 
     if (error) {
+      console.error(error);
+      alert("카카오 로그인에 실패했어요.");
+    }
+  }
 
-      console.error(
-        "약속 저장 실패:",
-        error
-      );
+  async function logout() {
+    await supabase.auth.signOut({
+      scope: "local",
+    });
 
-      alert(
-        "약속 저장에 실패했어요."
-      );
+    setUser(null);
+    setNickname("");
+    setMeetings([]);
+    setStep(0);
+  }
 
+  async function loadProfile(userId) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("nickname")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
       return;
     }
 
-    // 입력값 초기화
+    if (!data) {
+      setNeedsNickname(true);
+      setNickname("");
+    } else {
+      setNickname(data.nickname);
+      setNicknameInput(data.nickname);
+      setNeedsNickname(false);
+    }
+  }
+
+  async function saveNickname() {
+    if (!nicknameInput.trim()) {
+      alert("닉네임을 입력해주세요.");
+      return;
+    }
+
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        nickname: nicknameInput.trim(),
+      });
+
+    if (error) {
+      console.error(error);
+      alert("닉네임 저장에 실패했어요.");
+      return;
+    }
+
+    setNickname(nicknameInput.trim());
+    setNeedsNickname(false);
+  }
+
+  async function loadMeetings() {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select("*")
+      .order("meeting_date", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const formatted = (data || []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      date: item.meeting_date,
+      startTime: item.start_time,
+      endTime: item.end_time,
+      plan: item.plan,
+      place: item.place,
+      completed: item.completed,
+    }));
+
+    setMeetings(formatted);
+  }
+
+  async function createMeeting() {
+    if (!title.trim()) {
+      alert("약속 이름을 입력해주세요.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("meetings")
+      .insert({
+        title: title,
+        meeting_date: date || null,
+        start_time: startTime || null,
+        end_time: endTime || null,
+        plan: plan || null,
+        place: place || null,
+        completed: false,
+      });
+
+    if (error) {
+      console.error(error);
+      alert("약속 저장에 실패했어요.");
+      return;
+    }
 
     setTitle("");
     setDate("");
@@ -156,301 +222,276 @@ export default function Home() {
     setPlan("");
     setPlace("");
 
-    // DB에서 다시 불러오기
     await loadMeetings();
 
-    // 홈으로
     setStep(0);
   }
 
-
-  // ================================
-  // 약속 삭제
-  // ================================
-
   async function deleteMeeting(id) {
-
-    const ok = window.confirm(
-      "이 약속을 삭제할까요?"
-    );
+    const ok =
+      window.confirm("이 약속을 삭제할까요?");
 
     if (!ok) return;
 
-    const { error } =
-      await supabase
-        .from("meetings")
-        .delete()
-        .eq("id", id);
+    const { error } = await supabase
+      .from("meetings")
+      .delete()
+      .eq("id", id);
 
     if (error) {
-
-      console.error(
-        "삭제 실패:",
-        error
-      );
-
-      alert(
-        "삭제에 실패했어요."
-      );
-
+      console.error(error);
+      alert("삭제에 실패했어요.");
       return;
     }
 
     await loadMeetings();
   }
-
-
-  // ================================
-  // 완료 체크
-  // ================================
 
   async function toggleComplete(meeting) {
-
-    const { error } =
-      await supabase
-        .from("meetings")
-        .update({
-          completed:
-            !meeting.completed,
-        })
-        .eq("id", meeting.id);
+    const { error } = await supabase
+      .from("meetings")
+      .update({
+        completed: !meeting.completed,
+      })
+      .eq("id", meeting.id);
 
     if (error) {
-
-      console.error(
-        "완료 변경 실패:",
-        error
-      );
-
+      console.error(error);
+      alert("완료 상태 변경에 실패했어요.");
       return;
     }
 
     await loadMeetings();
   }
 
+  if (loading) {
+    return (
+      <main className="center-page">
+        <h1>MEET</h1>
+
+        <p>불러오는 중...</p>
+      </main>
+    );
+  }
+
+  // 로그인 전
+  if (!user) {
+    return (
+      <main className="login-page">
+
+        <div className="login-logo">
+          <h1>MEET</h1>
+
+          <p>
+            어디서 머할까?
+          </p>
+        </div>
+
+        <div className="login-box">
+
+          <h2>
+            같이 약속을 만들어봐요.
+          </h2>
+
+          <p>
+            카카오 계정으로 간편하게 시작할 수 있어요.
+          </p>
+
+          <button
+            className="kakao-button"
+            onClick={loginWithKakao}
+          >
+            카카오로 시작하기
+          </button>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // 첫 로그인 후 닉네임
+  if (needsNickname) {
+    return (
+      <main className="nickname-page">
+
+        <p className="step-label">
+          WELCOME TO MEET
+        </p>
+
+        <h2>
+          뭐라고 부르면 될까?
+        </h2>
+
+        <p className="nickname-description">
+          MEET에서 사용할 닉네임을 정해주세요.
+        </p>
+
+        <input
+          type="text"
+          placeholder="닉네임"
+          maxLength={12}
+          value={nicknameInput}
+          onChange={(e) =>
+            setNicknameInput(e.target.value)
+          }
+        />
+
+        <button onClick={saveNickname}>
+          MEET 시작하기
+        </button>
+
+      </main>
+    );
+  }
 
   return (
-
     <main>
 
-
-      {/* ================================
-          HOME
-      ================================= */}
+      {/* HOME */}
 
       {step === 0 && (
         <>
-
           <header className="home-header">
 
-            <h1>MEET</h1>
+            <div>
+              <h1>MEET</h1>
 
-            <p>
-              어디서 머할까?
-            </p>
+              <p>
+                어디서 머할까?
+              </p>
+            </div>
 
-          </header>
+            <div className="user-area">
 
+              <span>
+                {nickname}
+              </span>
 
-          {/* 불러오는 중 */}
-
-          {loading && (
-
-            <div className="empty">
-
-              약속 불러오는 중...
+              <button
+                className="logout-button"
+                onClick={logout}
+              >
+                로그아웃
+              </button>
 
             </div>
 
+          </header>
+
+          <p className="hello">
+            안녕, {nickname} 👋
+          </p>
+
+          {meetings.length === 0 && (
+            <div className="empty">
+              아직 약속이 없어요.
+            </div>
           )}
 
+          {meetings.length > 0 && (
+            <section className="meeting-list">
 
-          {/* 약속 없음 */}
+              <p className="step-label">
+                UPCOMING
+              </p>
 
-          {!loading &&
-            meetings.length === 0 && (
+              {meetings.map((meeting) => (
+                <div
+                  key={meeting.id}
+                  className={`meeting-card ${
+                    meeting.completed
+                      ? "completed"
+                      : ""
+                  }`}
+                >
 
-              <div className="empty">
+                  <div className="dday">
+                    {getDday(meeting.date)}
+                  </div>
 
-                아직 약속이 없어요.
+                  <div className="meeting-top">
 
-              </div>
-
-            )}
-
-
-          {/* 약속 목록 */}
-
-          {!loading &&
-            meetings.length > 0 && (
-
-              <section
-                className="meeting-list"
-              >
-
-                <p className="step-label">
-                  UPCOMING
-                </p>
-
-
-                {meetings.map(
-                  (meeting) => (
-
-                    <div
-                      key={meeting.id}
-
-                      className={`meeting-card ${
-                        meeting.completed
-                          ? "completed"
-                          : ""
-                      }`}
+                    <button
+                      className="check-button"
+                      onClick={() =>
+                        toggleComplete(meeting)
+                      }
                     >
+                      {meeting.completed
+                        ? "✓"
+                        : ""}
+                    </button>
 
+                    <h2>
+                      {meeting.title ||
+                        "이름 없는 약속"}
+                    </h2>
 
-                      {/* D-DAY */}
+                  </div>
 
-                      <div className="dday">
+                  <div className="meeting-info">
 
-                        {getDday(
-                          meeting.meeting_date
-                        )}
+                    <p>
+                      📅{" "}
+                      {meeting.date ||
+                        "날짜 미정"}
+                    </p>
 
-                      </div>
+                    <p>
+                      ⏰{" "}
+                      {meeting.startTime ||
+                        "시간 미정"}
 
+                      {meeting.endTime &&
+                        ` ~ ${meeting.endTime}`}
+                    </p>
 
-                      {/* 제목 */}
+                    {meeting.plan && (
+                      <p>
+                        ✦ {meeting.plan}
+                      </p>
+                    )}
 
-                      <div
-                        className="meeting-top"
-                      >
+                    {meeting.place && (
+                      <p>
+                        📍 {meeting.place}
+                      </p>
+                    )}
 
-                        <button
-                          className="check-button"
+                  </div>
 
-                          onClick={() =>
-                            toggleComplete(
-                              meeting
-                            )
-                          }
-                        >
+                  <button
+                    className="delete-button"
+                    onClick={() =>
+                      deleteMeeting(
+                        meeting.id
+                      )
+                    }
+                  >
+                    삭제
+                  </button>
 
-                          {meeting.completed
-                            ? "✓"
-                            : ""}
+                </div>
+              ))}
 
-                        </button>
-
-
-                        <h2>
-
-                          {meeting.title ||
-                            "이름 없는 약속"}
-
-                        </h2>
-
-                      </div>
-
-
-                      {/* 정보 */}
-
-                      <div
-                        className="meeting-info"
-                      >
-
-                        <p>
-                          📅{" "}
-                          {meeting.meeting_date ||
-                            "날짜 미정"}
-                        </p>
-
-
-                        <p>
-
-                          ⏰{" "}
-
-                          {meeting.start_time
-                            ? meeting.start_time.slice(
-                                0,
-                                5
-                              )
-                            : "시간 미정"}
-
-                          {meeting.end_time &&
-                            ` ~ ${meeting.end_time.slice(
-                              0,
-                              5
-                            )}`}
-
-                        </p>
-
-
-                        {meeting.plan && (
-
-                          <p>
-                            ✦ {meeting.plan}
-                          </p>
-
-                        )}
-
-
-                        {meeting.place && (
-
-                          <p>
-                            📍 {meeting.place}
-                          </p>
-
-                        )}
-
-                      </div>
-
-
-                      <button
-                        className="delete-button"
-
-                        onClick={() =>
-                          deleteMeeting(
-                            meeting.id
-                          )
-                        }
-                      >
-
-                        삭제
-
-                      </button>
-
-                    </div>
-
-                  )
-                )}
-
-              </section>
-
-            )}
-
+            </section>
+          )}
 
           <button
             className="new-button"
-
             onClick={() =>
               setStep(1)
             }
           >
-
             + 새 약속 만들기
-
           </button>
-
         </>
       )}
 
-
-      {/* ================================
-          STEP 1
-          약속 이름
-      ================================= */}
+      {/* 약속 이름 */}
 
       {step === 1 && (
-
         <section className="create-page">
 
           <p className="step-label">
@@ -463,18 +504,12 @@ export default function Home() {
 
           <input
             type="text"
-
             placeholder="예: 영화 보러 가기"
-
             value={title}
-
             onChange={(e) =>
-              setTitle(
-                e.target.value
-              )
+              setTitle(e.target.value)
             }
           />
-
 
           <button
             onClick={() =>
@@ -484,10 +519,8 @@ export default function Home() {
             다음 →
           </button>
 
-
           <button
             className="back-button"
-
             onClick={() =>
               setStep(0)
             }
@@ -496,17 +529,11 @@ export default function Home() {
           </button>
 
         </section>
-
       )}
 
-
-      {/* ================================
-          STEP 2
-          언제 만날까?
-      ================================= */}
+      {/* 날짜 시간 */}
 
       {step === 2 && (
-
         <section className="create-page">
 
           <p className="step-label">
@@ -517,23 +544,17 @@ export default function Home() {
             언제 만날까?
           </h2>
 
-
           <label>
             날짜
           </label>
 
           <input
             type="date"
-
             value={date}
-
             onChange={(e) =>
-              setDate(
-                e.target.value
-              )
+              setDate(e.target.value)
             }
           />
-
 
           <label>
             시작 시간
@@ -541,9 +562,7 @@ export default function Home() {
 
           <input
             type="time"
-
             value={startTime}
-
             onChange={(e) =>
               setStartTime(
                 e.target.value
@@ -551,23 +570,19 @@ export default function Home() {
             }
           />
 
-
           <label>
             끝나는 시간
           </label>
 
           <input
             type="time"
-
             value={endTime}
-
             onChange={(e) =>
               setEndTime(
                 e.target.value
               )
             }
           />
-
 
           <button
             onClick={() =>
@@ -577,10 +592,8 @@ export default function Home() {
             다음 →
           </button>
 
-
           <button
             className="back-button"
-
             onClick={() =>
               setStep(1)
             }
@@ -589,17 +602,11 @@ export default function Home() {
           </button>
 
         </section>
-
       )}
 
-
-      {/* ================================
-          STEP 3
-          뭐 할까?
-      ================================= */}
+      {/* 할 일 */}
 
       {step === 3 && (
-
         <section className="create-page">
 
           <p className="step-label">
@@ -612,16 +619,11 @@ export default function Home() {
 
           <textarea
             placeholder="예: 영화 보고 저녁 먹기"
-
             value={plan}
-
             onChange={(e) =>
-              setPlan(
-                e.target.value
-              )
+              setPlan(e.target.value)
             }
           />
-
 
           <button
             onClick={() =>
@@ -631,10 +633,8 @@ export default function Home() {
             다음 →
           </button>
 
-
           <button
             className="back-button"
-
             onClick={() =>
               setStep(2)
             }
@@ -643,17 +643,11 @@ export default function Home() {
           </button>
 
         </section>
-
       )}
 
-
-      {/* ================================
-          STEP 4
-          어디서?
-      ================================= */}
+      {/* 장소 */}
 
       {step === 4 && (
-
         <section className="create-page">
 
           <p className="step-label">
@@ -664,21 +658,14 @@ export default function Home() {
             어디서 만날까?
           </h2>
 
-
           <input
             type="text"
-
             placeholder="예: 성수역"
-
             value={place}
-
             onChange={(e) =>
-              setPlace(
-                e.target.value
-              )
+              setPlace(e.target.value)
             }
           />
-
 
           <button
             onClick={() =>
@@ -688,10 +675,8 @@ export default function Home() {
             다음 →
           </button>
 
-
           <button
             className="back-button"
-
             onClick={() =>
               setStep(3)
             }
@@ -700,16 +685,11 @@ export default function Home() {
           </button>
 
         </section>
-
       )}
 
-
-      {/* ================================
-          CONFIRM
-      ================================= */}
+      {/* 확인 */}
 
       {step === 5 && (
-
         <section className="create-page">
 
           <p className="step-label">
@@ -720,24 +700,16 @@ export default function Home() {
             이렇게 만날까?
           </h2>
 
-
           <div className="confirm-card">
 
-
             <div className="confirm-dday">
-
               {getDday(date)}
-
             </div>
 
-
             <h3>
-
               {title ||
                 "약속 이름 없음"}
-
             </h3>
-
 
             <p>
               📅{" "}
@@ -745,65 +717,45 @@ export default function Home() {
                 "날짜 미정"}
             </p>
 
-
             <p>
-
               ⏰{" "}
-
               {startTime ||
                 "시간 미정"}
 
               {endTime &&
                 ` ~ ${endTime}`}
-
             </p>
 
-
             {plan && (
-
               <p>
                 ✦ {plan}
               </p>
-
             )}
 
-
             {place && (
-
               <p>
                 📍 {place}
               </p>
-
             )}
 
           </div>
 
-
           <button
-            onClick={
-              createMeeting
-            }
+            onClick={createMeeting}
           >
-
             약속 만들기
-
           </button>
-
 
           <button
             className="back-button"
-
             onClick={() =>
               setStep(4)
             }
           >
-
             ← 수정하기
-
           </button>
 
         </section>
-
       )}
 
     </main>
